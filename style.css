@@ -1,0 +1,62 @@
+:root {
+  color-scheme: light;
+  font-family: "Noto Sans JP", "Yu Gothic UI", Meiryo, sans-serif;
+  color: #202c29;
+  background: #f3f6f1;
+  --green: #215a47;
+  --muted: #50645a;
+  --border: #d8e1d8;
+}
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+body { margin: 0; }
+button, a { -webkit-tap-highlight-color: transparent; }
+button { font: inherit; cursor: pointer; }
+button:disabled { cursor: default; }
+:focus-visible { outline: 3px solid #497f67; outline-offset: 3px; }
+.shell { width: min(100% - 36px, 820px); margin-inline: auto; }
+header { border-bottom: 1px solid var(--border); background: #fbfcf9; }
+.header { display: flex; align-items: center; justify-content: space-between; gap: 10px; min-height: 68px; }
+.brand { display: flex; align-items: center; gap: 9px; color: inherit; text-decoration: none; font-weight: 800; white-space: nowrap; }
+.brand span { display: grid; place-items: center; width: 31px; height: 31px; border-radius: 8px; color: white; background: var(--green); font-size: 20px; }
+.local { color: var(--green); font-size: .78rem; font-weight: 700; white-space: nowrap; }
+.local span { display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: #4d8e6e; margin-right: 4px; }
+.intro { text-align: center; padding: 55px 0 33px; }
+.eyebrow { color: var(--green); font-size: .75rem; letter-spacing: .19em; font-weight: 800; }
+h1 { margin: 10px 0 14px; font-size: clamp(1.85rem, 5.4vw, 3.25rem); letter-spacing: -.045em; line-height: 1.2; }
+h1 span { color: var(--green); }
+.mobile { display: none; }
+.intro > p:last-child { color: var(--muted); margin-bottom: 0; font-size: .93rem; line-height: 1.8; }
+.workspace { background: #fff; border: 1px solid var(--border); border-radius: 20px; box-shadow: 0 14px 45px #233d3011; }
+nav { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; padding: 8px; background: #e9eee7; border-radius: 19px 19px 0 0; }
+nav button { padding: 12px 5px; color: var(--muted); background: transparent; border: 0; border-radius: 12px; font-weight: 750; }
+nav button[aria-pressed="true"] { color: var(--green); background: white; box-shadow: 0 2px 8px #233d3015; }
+nav span { margin-right: 4px; }
+.panel { padding: 24px clamp(15px, 5vw, 36px); }
+h2 { margin: 0; font-size: 1.25rem; }
+#mode-description { color: var(--muted); margin: 6px 0 18px; font-size: .9rem; }
+#drop-zone { display: grid; justify-items: center; gap: 8px; padding: 23px 10px; background: #f5f8f3; border: 1.5px dashed #96b09f; border-radius: 14px; }
+#drop-zone.dragging { background: #e1efe3; border-color: var(--green); }
+.upload { display: grid; place-items: center; border-radius: 12px; width: 42px; height: 42px; color: var(--green); background: #e2ede2; font-size: 1.5rem; font-weight: bold; }
+small { color: var(--muted); }
+#choose, .primary, .clear, .item button { border-radius: 8px; padding: 8px 13px; font-weight: 700; }
+#choose { margin-top: 4px; background: white; color: var(--green); border: 1px solid #9bb8a5; }
+.actions { margin-top: 16px; display: flex; flex-wrap: wrap; gap: 8px; }
+.primary { color: white; background: var(--green); border: 1px solid transparent; min-height: 44px; padding-inline: 20px; }
+.primary:disabled { color: #54685c; background: #e4ebe3; }
+.clear, .item button { background: white; color: var(--green); border: 1px solid var(--border); }
+button:not(:disabled):hover { filter: brightness(.95); }
+#queue { padding: 0; margin: 14px 0; list-style: none; display: grid; gap: 6px; }
+.item { display: flex; align-items: center; gap: 7px; background: #f5f8f3; border-radius: 9px; padding: 6px 8px; }
+.filename { flex: 1; min-width: 0; overflow-wrap: anywhere; font-size: .88rem; }
+.item button { padding: 5px 8px; }
+.item button:disabled { opacity: .45; }
+#status { color: var(--muted); font-size: .9rem; margin: 10px 0 0; overflow-wrap: anywhere; }
+#status:empty { display: none; }
+#status.error { color: #983e36; }
+#download { display: inline-block; color: var(--green); margin-top: 8px; }
+footer { text-align: center; color: var(--muted); font-size: .75rem; padding: 23px 0; }
+@media (max-width: 390px) {
+  .intro { padding-top: 36px; }
+  .mobile { display: initial; }
+}

@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; img-src blob:; connect-src 'none'; base-uri 'none'; form-action 'none'">
+  <meta name="description" content="写真のPDF変換とPDFの結合をブラウザ内で行うツール。">
+  <title>PDFひとまとめ</title>
+  <link rel="stylesheet" href="style.css">
+  <script defer src="vendor/pdf-lib.min.js"></script>
+  <script defer src="app.js"></script>
+</head>
+<body>
+  <header><div class="shell header"><a href="./" class="brand"><span aria-hidden="true">▤</span> PDFひとまとめ</a><span class="local"><span aria-hidden="true"></span> ブラウザ内で処理</span></div></header>
+  <main class="shell">
+    <section class="intro" aria-labelledby="title">
+      <p class="eyebrow">PDF TOOLKIT</p>
+      <h1 id="title">ファイルを、<br class="mobile">ひとつの<span>PDF</span>に。</h1>
+      <p>写真のPDF変換も、複数のPDFの結合も。<br>ファイルは端末の中で処理され、アップロードされません。</p>
+    </section>
+    <section class="workspace" aria-label="PDFツール">
+      <nav aria-label="機能">
+        <button type="button" data-mode="photos" aria-pressed="true"><span aria-hidden="true">▧</span> 写真をPDFに</button>
+        <button type="button" data-mode="merge" aria-pressed="false"><span aria-hidden="true">▤</span> PDFを結合</button>
+      </nav>
+      <div class="panel">
+        <h2 id="mode-title">写真をPDFに変換</h2>
+        <p id="mode-description">写真1枚を1ページにして、選んだ順番でまとめます。</p>
+        <div id="drop-zone">
+          <div class="upload" aria-hidden="true">↑</div>
+          <strong id="drop-label">写真をここにドロップ</strong>
+          <small id="formats">JPG、PNG、WebPに対応</small>
+          <button type="button" id="choose">写真を選ぶ</button>
+          <input type="file" id="files" multiple hidden accept=".jpg,.jpeg,.png,.webp">
+        </div>
+        <ol id="queue" aria-label="PDFにまとめる順番" hidden></ol>
+        <div class="actions">
+          <button type="button" class="primary" id="run" disabled>PDFを作成</button>
+          <button type="button" class="clear" id="clear" hidden>すべて削除</button>
+        </div>
+        <p id="status" role="status" aria-live="polite"></p>
+        <a id="download" hidden>もう一度ダウンロード</a>
+      </div>
+    </section>
+    <footer>PDFひとまとめ</footer>
+  </main>
+</body>
+</html>
