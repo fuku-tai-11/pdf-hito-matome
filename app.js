@@ -79,6 +79,14 @@ function render() {
   for (const tab of tabs) tab.disabled = busy;
 }
 
+async function fingerprintPdf(file) {
+  const normalized = await PDFLib.PDFDocument.create({ updateMetadata: false });
+  await appendPdf(normalized, file);
+  const pageData = await normalized.save({ updateFieldAppearances: false });
+  const digest = await crypto.subtle.digest('SHA-256', pageData);
+  return new Uint8Array(digest).join(',');
+}
+
 async function addFiles(files) {
   if (busy || files.length === 0) return;
   const incoming = Array.from(files);
@@ -93,6 +101,7 @@ async function addFiles(files) {
     return;
   }
 
+  if (!window.PDFLib) return;
   busy = true;
   render();
   report('PDFの重複を確認中…');
@@ -108,8 +117,7 @@ async function addFiles(files) {
         continue;
       }
       try {
-        const digest = await crypto.subtle.digest('SHA-256', await file.arrayBuffer());
-        const hash = new Uint8Array(digest).join(',');
+        const hash = await fingerprintPdf(file);
         if (existing.has(hash)) {
           duplicates++;
           continue;
@@ -128,7 +136,7 @@ async function addFiles(files) {
     const messages = [];
     if (duplicates) messages.push(`同じ内容のPDFを${duplicates}件スキップしました。`);
     if (rejected) messages.push(`対応形式以外、または空のファイルを${rejected}件スキップしました。`);
-    if (unreadable) messages.push(`読み込めなかったPDFを${unreadable}件スキップしました。`);
+    if (unreadable) messages.push(`読み込めなかったPDFを${unreadable}件スキップしました。PDFが開けるか、パスワードで保護されていないか確認してください。`);
     report(messages.join(' '), rejected + unreadable > 0);
   } finally {
     busy = false;
