@@ -8,7 +8,7 @@
   <title>PDFひとまとめ</title>
   <link rel="stylesheet" href="style.css">
   <script defer src="vendor/pdf-lib.min.js"></script>
-  <script defer src="app.js?v=3"></script>
+  <script defer src="app.js?v=4"></script>
 </head>
 <body>
   <header><div class="shell header"><a href="./" class="brand"><span aria-hidden="true">▤</span> PDFひとまとめ</a><span class="local"><span aria-hidden="true"></span> ブラウザ内で処理</span></div></header>
@@ -34,6 +34,7 @@
           <input type="file" id="files" multiple hidden accept=".jpg,.jpeg,.png,.webp">
         </div>
         <ol id="queue" aria-label="PDFにまとめる順番" hidden></ol>
+        <label id="merge-options" hidden><input id="skip-pages" type="checkbox" checked> 重複ページを除く</label>
         <div class="actions">
           <button type="button" class="primary" id="run" disabled>PDFを作成</button>
           <button type="button" class="clear" id="clear" hidden>すべて削除</button>

@@ -7,6 +7,7 @@ const run = byId('run');
 const clear = byId('clear');
 const status = byId('status');
 const download = byId('download');
+const skipPages = byId('skip-pages');
 const tabs = [...document.querySelectorAll('[data-mode]')];
 
 const modes = {
@@ -75,16 +76,72 @@ function render() {
   clear.hidden = queue.hidden;
   clear.disabled = busy;
   choose.disabled = busy;
+  byId('merge-options').hidden = mode !== modes.merge;
+  skipPages.disabled = busy;
   run.disabled = busy || mode.files.length < mode.min || !window.PDFLib;
   for (const tab of tabs) tab.disabled = busy;
 }
 
-async function fingerprintPdf(file) {
+async function fingerprintPdf(source, indices) {
   const normalized = await PDFLib.PDFDocument.create({ updateMetadata: false });
-  await appendPdf(normalized, file);
+  await copyPages(normalized, source, indices);
+  if (indices.length === 1) normalizePageResources(normalized.getPage(0));
   const pageData = await normalized.save({ updateFieldAppearances: false });
   const digest = await crypto.subtle.digest('SHA-256', pageData);
   return new Uint8Array(digest).join(',');
+}
+
+function normalizePageResources(page) {
+  const { PDFArray, PDFDict, PDFName, PDFRawStream, decodePDFRawStream } = PDFLib;
+  const contents = page.node.Contents();
+  if (!(contents instanceof PDFArray)) return;
+  const streams = contents.asArray().map((entry) => page.doc.context.lookup(entry));
+  if (!streams.every((stream) => stream instanceof PDFRawStream)) return;
+
+  let instructions;
+  try {
+    instructions = streams.map((stream) => {
+      if (stream.dict.keys().some((key) => !['/Length', '/Filter', '/DecodeParms'].includes(key.toString()))) return null;
+      const bytes = decodePDFRawStream(stream).decode();
+      if (bytes.some((byte) => byte > 127)) return null;
+      return new TextDecoder().decode(bytes);
+    });
+  } catch {
+    return;
+  }
+  // Restrict rewriting to streams without literal strings, comments, or inline images.
+  if (instructions.some((text) => text === null || /[()%]|(?:^|\s)BI(?=\s)/.test(text))) return;
+
+  const resources = page.node.Resources();
+  const mappings = new Map();
+  for (const [category, operator] of [['Font', 'Tf'], ['XObject', 'Do'], ['ExtGState', 'gs']]) {
+    const dictionary = resources?.lookup(PDFName.of(category));
+    if (!(dictionary instanceof PDFDict)) continue;
+    const entries = dictionary.entries();
+    const names = new Map();
+    for (const [index, [name]] of entries.entries()) {
+      const replacement = PDFName.of(`Dedup${category}${index}`);
+      names.set(name.toString(), replacement.toString());
+      dictionary.delete(name);
+    }
+    for (const [index, [, value]] of entries.entries()) dictionary.set(PDFName.of(`Dedup${category}${index}`), value);
+    mappings.set(operator, names);
+  }
+  if (!mappings.size) return;
+
+  for (const [index, text] of instructions.entries()) {
+    const rewritten = text.replace(
+      /(\/[^\s<>\[\]{}\/]+)(\s+(?:[+-]?(?:\d*\.)?\d+\s+)?)(Tf|Do|gs)(?=\s|$)/g,
+      (match, name, spacing, operator) => {
+        const canonical = mappings.get(operator)?.get(name);
+        return canonical ? `${canonical}${spacing}${operator}` : match;
+      },
+    );
+    const ref = contents.get(index);
+    const replacement = page.doc.context.flateStream(new TextEncoder().encode(rewritten));
+    if (ref instanceof PDFLib.PDFRef) page.doc.context.assign(ref, replacement);
+    else contents.set(index, replacement);
+  }
 }
 
 async function addFiles(files) {
@@ -117,7 +174,8 @@ async function addFiles(files) {
         continue;
       }
       try {
-        const hash = await fingerprintPdf(file);
+        const source = await loadPdf(file);
+        const hash = await fingerprintPdf(source, source.getPageIndices());
         if (existing.has(hash)) {
           duplicates++;
           continue;
@@ -163,6 +221,7 @@ for (const tab of tabs) {
 }
 
 choose.addEventListener('click', () => input.click());
+skipPages.addEventListener('change', removeResult);
 input.addEventListener('change', () => {
   addFiles(input.files);
   input.value = '';
@@ -219,11 +278,33 @@ async function addPhoto(pdf, file) {
   }
 }
 
-async function appendPdf(output, file) {
+async function loadPdf(file) {
   const source = await PDFLib.PDFDocument.load(await file.arrayBuffer(), { updateMetadata: false });
   if (!source.getPageCount()) throw new Error('PDFにページがありません。');
-  const pages = await output.copyPages(source, source.getPageIndices());
+  return source;
+}
+
+async function copyPages(output, source, indices) {
+  const pages = await output.copyPages(source, indices);
   for (const page of pages) output.addPage(page);
+}
+
+async function appendPdf(output, file, seenPages) {
+  const source = await loadPdf(file);
+  const indices = source.getPageIndices();
+  if (!seenPages) {
+    await copyPages(output, source, indices);
+    return 0;
+  }
+  const unique = [];
+  for (const index of indices) {
+    const hash = await fingerprintPdf(source, [index]);
+    if (seenPages.has(hash)) continue;
+    seenPages.add(hash);
+    unique.push(index);
+  }
+  if (unique.length) await copyPages(output, source, unique);
+  return indices.length - unique.length;
 }
 
 run.addEventListener('click', async () => {
@@ -234,11 +315,13 @@ run.addEventListener('click', async () => {
   let currentFile;
   try {
     const pdf = await PDFLib.PDFDocument.create();
-    const append = mode === modes.photos ? addPhoto : appendPdf;
+    const seenPages = mode === modes.merge && skipPages.checked ? new Set() : undefined;
+    let skipped = 0;
     for (const [index, file] of mode.files.entries()) {
       currentFile = file;
       report(`処理中… ${index + 1} / ${mode.files.length}`);
-      await append(pdf, file);
+      if (mode === modes.photos) await addPhoto(pdf, file);
+      else skipped += await appendPdf(pdf, file, seenPages);
     }
     currentFile = undefined;
     const bytes = await pdf.save();
@@ -246,7 +329,8 @@ run.addEventListener('click', async () => {
     download.href = resultUrl;
     download.download = mode.filename;
     download.hidden = false;
-    report(`PDFができました（${pdf.getPageCount()}ページ）。`);
+    const duplicateMessage = skipped ? ` 重複ページを${skipped}枚除きました。` : '';
+    report(`PDFができました（${pdf.getPageCount()}ページ）。${duplicateMessage}`);
     download.click();
   } catch {
     const hint = mode === modes.photos ? '画像が開けるか確認してください。' : 'PDFが開けるか、パスワードで保護されていないか確認してください。';
