@@ -27,6 +27,7 @@ const modes = {
 let mode = modes.photos;
 let busy = false;
 let resultUrl;
+const pdfHashes = new WeakMap();
 
 function report(message, error = false) {
   status.textContent = message;
@@ -78,16 +79,61 @@ function render() {
   for (const tab of tabs) tab.disabled = busy;
 }
 
-function addFiles(files) {
+async function addFiles(files) {
   if (busy || files.length === 0) return;
-  removeResult();
-  let rejected = 0;
-  for (const file of files) {
-    if (file.size > 0 && mode.pattern.test(file.name)) mode.files.push(file);
-    else rejected++;
+  const incoming = Array.from(files);
+  if (mode === modes.photos) {
+    const photos = incoming.filter((file) => file.size > 0 && mode.pattern.test(file.name));
+    if (photos.length) removeResult();
+    mode.files.push(...photos);
+    render();
+    if (photos.length < incoming.length) {
+      report(`対応形式以外、または空のファイルを${incoming.length - photos.length}件スキップしました。`, true);
+    }
+    return;
   }
+
+  busy = true;
   render();
-  if (rejected) report(`対応形式以外、または空のファイルを${rejected}件スキップしました。`, true);
+  report('PDFの重複を確認中…');
+  const existing = new Set(mode.files.map((file) => pdfHashes.get(file)));
+  let rejected = 0;
+  let duplicates = 0;
+  let unreadable = 0;
+  const accepted = [];
+  try {
+    for (const file of incoming) {
+      if (file.size === 0 || !mode.pattern.test(file.name)) {
+        rejected++;
+        continue;
+      }
+      try {
+        const digest = await crypto.subtle.digest('SHA-256', await file.arrayBuffer());
+        const hash = new Uint8Array(digest).join(',');
+        if (existing.has(hash)) {
+          duplicates++;
+          continue;
+        }
+        existing.add(hash);
+        pdfHashes.set(file, hash);
+        accepted.push(file);
+      } catch {
+        unreadable++;
+      }
+    }
+    if (accepted.length) {
+      removeResult();
+      mode.files.push(...accepted);
+    }
+    const messages = [];
+    if (duplicates) messages.push(`同じ内容のPDFを${duplicates}件スキップしました。`);
+    if (rejected) messages.push(`対応形式以外、または空のファイルを${rejected}件スキップしました。`);
+    if (unreadable) messages.push(`読み込めなかったPDFを${unreadable}件スキップしました。`);
+    report(messages.join(' '), rejected + unreadable > 0);
+  } finally {
+    busy = false;
+    render();
+  }
 }
 
 for (const tab of tabs) {
